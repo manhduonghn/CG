@@ -1,8 +1,8 @@
 import argparse
 from src.domains import DomainConverter
 from src.cloudflare import (
-    get_lists, get_rules, create_list, update_list, create_rule, 
-    update_rule, delete_list, delete_rule, get_list_items
+    create_list, update_list, create_rule, 
+    update_rule, delete_list, delete_rule
 )
 from src import utils, info, error, silent_error, PREFIX
 
@@ -39,8 +39,7 @@ class CloudflareManager:
                     update_list(cgp_list["id"], remove_items, append_items)
                     info(f"Updated list: {cgp_list['name']}")
                 list_ids.append(cgp_list["id"])
-                
-                # Cập nhật mapping trong cache
+            
                 self.cache["mapping"][cgp_list["id"]] = chunk
             else:
                 lst = create_list(list_name, chunk)
