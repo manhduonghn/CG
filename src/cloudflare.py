@@ -1,7 +1,7 @@
 import os
-import requests
+from src import requests
 from typing import List
-from requests import retry, rate_limited_request
+from src.requests import retry, rate_limited_request
 
 
 CF_API_TOKEN = os.environ["CF_API_TOKEN"]
