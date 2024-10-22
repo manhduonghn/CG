@@ -8,7 +8,9 @@ on:
 jobs:
   run:
     name: Cloudflare Gateway
-    permissions: write-all
+    permissions:
+      actions: read  # Cho phép đọc thông tin về các workflow runs
+      contents: read  # Cho phép đọc nội dung của repository
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -22,26 +24,30 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@main
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-          
+
       - name: Install Python
-        uses: actions/setup-python@main
+        uses: actions/setup-python@v3
         with:
           python-version: 3.11
 
       - name: Check Previous Workflow Run Status
         id: check_run
         run: |
-          previous_run_status=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/repos/${{ github.repository }}/actions/runs?per_page=1 | jq -r '.workflow_runs[0].conclusion')
+          previous_run_status=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs?per_page=5 | jq -r '[.workflow_runs[] | select(.conclusion != null)][0].conclusion')
+          if [ "$previous_run_status" == "null" ]; then
+            echo "No previous successful run found."
+            previous_run_status="failure"
+          fi
           echo "Previous run status: $previous_run_status"
           echo "run_status=$previous_run_status" >> $GITHUB_ENV
 
       - name: Cache Data
         id: cache-cloudflare-data
-        uses: actions/cache@main
+        uses: actions/cache@v3
         with:
           path: cloudflare_cache.json
           key: ${{ runner.os }}-cloudflare-data-${{ github.run_id }}
@@ -55,7 +61,7 @@ jobs:
       - name: Delete workflow runs
         uses: Mattraks/delete-workflow-runs@v2
         with:
-          token: ${{ github.token }}
-          repository: ${{ github.repository }}
+          token: $GITHUB_TOKEN
+          repository: $GITHUB_REPOSITORY
           retain_days: 0
           keep_minimum_runs: 1
