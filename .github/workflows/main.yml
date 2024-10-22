@@ -29,6 +29,12 @@ jobs:
         with:
           python-version: 3.11
 
+      # Debug: List available artifacts before attempting to download
+      - name: List available artifacts
+        run: |
+          gh run list --limit 5  # Liệt kê các lần chạy gần đây nhất
+          gh run view ${{ github.run_id }} --log  # Xem log chi tiết từng lần chạy
+
       # Download previous success state artifact
       - name: Download previous success artifact
         id: download-success
@@ -71,4 +77,4 @@ jobs:
           token: ${{ github.token }}
           repository: ${{ github.repository }}
           retain_days: 0
-          keep_minimum_runs: 1
+          keep_minimum_runs: 5  # Giữ lại ít nhất 5 lần chạy trước
