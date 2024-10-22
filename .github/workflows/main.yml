@@ -29,17 +29,19 @@ jobs:
         with:
           python-version: 3.11
 
+      # Download previous success state artifact
       - name: Download previous success artifact
         id: download-success
         uses: actions/download-artifact@v3
         with:
           name: workflow-success
-        continue-on-error: true
+        continue-on-error: true  # Không báo lỗi nếu không có artifact
 
+      # Use cache only if the previous run was successful
       - name: Cache Data
         id: cache-cloudflare-data
         uses: actions/cache@v3
-        if: steps.download-success.outcome == 'success'
+        if: steps.download-success.outcome == 'success'  # Chỉ sử dụng cache nếu lần chạy trước thành công
         with:
           path: cloudflare_cache.json
           key: ${{ runner.os }}-cloudflare-data-${{ github.run_id }}
@@ -51,12 +53,17 @@ jobs:
         run: |
           python -m src run
 
+      # Create a success file to mark this run as successful
+      - name: Create success file
+        run: echo "success" > dummy_success_file  # Tạo một file giả để lưu trạng thái thành công
+
+      # Upload success state artifact if the workflow run is successful
       - name: Upload success state artifact
-        if: success()
+        if: success()  # Chỉ upload nếu các bước trước đó thành công
         uses: actions/upload-artifact@v3
         with:
           name: workflow-success
-          path: ./dummy_success_file
+          path: ./dummy_success_file  # Đường dẫn tới file đã tạo
 
       - name: Delete workflow runs
         uses: Mattraks/delete-workflow-runs@v2
