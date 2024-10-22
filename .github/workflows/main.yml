@@ -2,6 +2,7 @@ name: Add Rules to Cloudflare Gateway
 on:
   push:
   workflow_dispatch:
+
 jobs:
   run:
     name: Cloudflare Gateway
@@ -19,27 +20,44 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@main
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-          
+
       - name: Install Python
-        uses: actions/setup-python@main
+        uses: actions/setup-python@v3
         with:
           python-version: 3.11
-        
+
+      - name: Download previous success artifact
+        id: download-success
+        uses: actions/download-artifact@v3
+        with:
+          name: workflow-success
+        continue-on-error: true
+
       - name: Cache Data
         id: cache-cloudflare-data
-        uses: actions/cache@main
+        uses: actions/cache@v3
+        if: steps.download-success.outcome == 'success'
         with:
-          path: cloudflare_data.json
+          path: cloudflare_cache.json
           key: ${{ runner.os }}-cloudflare-data-${{ github.run_id }}
           restore-keys: |
             ${{ runner.os }}-cloudflare-data-
-      
-      - name: Cloudflare Gateway Zero Trust 
-        run: python -m src run
-      
+
+      - name: Cloudflare Gateway Zero Trust
+        id: cloudflare-run
+        run: |
+          python -m src run
+
+      - name: Upload success state artifact
+        if: success()
+        uses: actions/upload-artifact@v3
+        with:
+          name: workflow-success
+          path: ./dummy_success_file
+
       - name: Delete workflow runs
         uses: Mattraks/delete-workflow-runs@v2
         with:
