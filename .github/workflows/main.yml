@@ -6,7 +6,15 @@ on:
 jobs:
   run:
     name: Cloudflare Gateway
-    permissions: write-all
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+      issues: read
+      pulls: read
+      repository-projects: read
+      statuses: read
+      workflows: read
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -27,11 +35,14 @@ jobs:
       - name: Install GitHub CLI
         run: sudo apt-get install gh
 
+      - name: Verify GitHub CLI
+        run: gh --version
+
       # Kiểm tra trạng thái workflow gần nhất
       - name: Check previous workflow status
         id: check-status
         run: |
-          STATUS=$(gh run list --branch main --limit 1 --json conclusion -q '.[] | .conclusion')
+          STATUS=$(gh run list --limit 1 --json conclusion -q '.[0].conclusion')
           echo "Previous workflow status: $STATUS"
           echo "STATUS=$STATUS" >> $GITHUB_ENV  # Lưu trạng thái vào Environment Files
           echo "Current STATUS: ${STATUS}"  # In trạng thái để kiểm tra
