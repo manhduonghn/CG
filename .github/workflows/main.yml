@@ -8,9 +8,7 @@ on:
 jobs:
   run:
     name: Cloudflare Gateway
-    permissions:
-      actions: read  # Cho phép đọc thông tin về các workflow runs
-      contents: read  # Cho phép đọc nội dung của repository
+    permissions: write-all
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
