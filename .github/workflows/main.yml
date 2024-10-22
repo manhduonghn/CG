@@ -33,13 +33,13 @@ jobs:
         run: |
           STATUS=$(gh run list --branch main --limit 1 --json conclusion -q '.[] | .conclusion')
           echo "Previous workflow status: $STATUS"
-          echo "::set-output name=STATUS::$STATUS"
+          echo "STATUS=$STATUS" >> $GITHUB_ENV  # Lưu trạng thái vào Environment Files
 
       # Chỉ sử dụng cache nếu workflow trước đó thành công
       - name: Cache Data
         id: cache-cloudflare-data
         uses: actions/cache@v3
-        if: steps.check-status.outputs.STATUS == 'success'  # Sử dụng cache nếu workflow trước đó thành công
+        if: env.STATUS == 'success'  # Sử dụng cache nếu workflow trước đó thành công
         with:
           path: cloudflare_cache.json
           key: ${{ runner.os }}-cloudflare-data-${{ github.run_id }}
