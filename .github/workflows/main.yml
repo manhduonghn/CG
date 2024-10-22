@@ -1,9 +1,14 @@
 name: Add Rules to Cloudflare Gateway
+
 on:
   push:
   schedule:
     - cron: "0 * * * *"
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Add Rules to Cloudflare Gateway"] # Kiểm tra workflow hiện tại
+    types:
+      - completed
 
 jobs:
   run:
@@ -31,17 +36,9 @@ jobs:
         with:
           python-version: 3.11
 
-      - name: Check Previous Workflow Run Status
-        id: check_run
-        run: |
-          previous_run_status=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs?per_page=5 | jq -r '[.workflow_runs[] | select(.conclusion != null)][0].conclusion')
-          if [ "$previous_run_status" == "null" ]; then
-            echo "No previous successful run found."
-            previous_run_status="failure"
-          fi
-          echo "Previous run status: $previous_run_status"
-          echo "run_status=$previous_run_status" >> $GITHUB_ENV
+      - name: Check Previous Workflow Conclusion
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        run: echo "Previous workflow run succeeded, continuing..."
 
       - name: Cache Data
         id: cache-cloudflare-data
@@ -51,7 +48,7 @@ jobs:
           key: ${{ runner.os }}-cloudflare-data-${{ github.run_id }}
           restore-keys: |
             ${{ runner.os }}-cloudflare-data-
-        if: env.run_status == 'success'  # Sử dụng cache nếu lần chạy trước thành công
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}  # Chỉ dùng cache nếu workflow trước thành công
 
       - name: Cloudflare Gateway Zero Trust 
         run: python -m src run
