@@ -24,30 +24,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install Python
-        uses: actions/setup-python@v3
-        with:
-          python-version: 3.11
+      - name: Install GitHub CLI
+        run: sudo apt-get install gh
 
-      # Debug: List available artifacts before attempting to download
-      - name: List available artifacts
+      # Kiểm tra trạng thái workflow gần nhất
+      - name: Check previous workflow status
+        id: check-status
         run: |
-          gh run list --limit 5  # Liệt kê các lần chạy gần đây nhất
-          gh run view ${{ github.run_id }} --log  # Xem log chi tiết từng lần chạy
+          STATUS=$(gh run list --branch main --limit 1 --json conclusion -q '.[] | .conclusion')
+          echo "Previous workflow status: $STATUS"
+          echo "::set-output name=STATUS::$STATUS"
 
-      # Download previous success state artifact
-      - name: Download previous success artifact
-        id: download-success
-        uses: actions/download-artifact@v3
-        with:
-          name: workflow-success
-        continue-on-error: true  # Không báo lỗi nếu không có artifact
-
-      # Use cache only if the previous run was successful
+      # Chỉ sử dụng cache nếu workflow trước đó thành công
       - name: Cache Data
         id: cache-cloudflare-data
         uses: actions/cache@v3
-        if: steps.download-success.outcome == 'success'  # Chỉ sử dụng cache nếu lần chạy trước thành công
+        if: steps.check-status.outputs.STATUS == 'success'  # Sử dụng cache nếu workflow trước đó thành công
         with:
           path: cloudflare_cache.json
           key: ${{ runner.os }}-cloudflare-data-${{ github.run_id }}
@@ -55,21 +47,7 @@ jobs:
             ${{ runner.os }}-cloudflare-data-
 
       - name: Cloudflare Gateway Zero Trust
-        id: cloudflare-run
-        run: |
-          python -m src run
-
-      # Create a success file to mark this run as successful
-      - name: Create success file
-        run: echo "success" > dummy_success_file  # Tạo một file giả để lưu trạng thái thành công
-
-      # Upload success state artifact if the workflow run is successful
-      - name: Upload success state artifact
-        if: success()  # Chỉ upload nếu các bước trước đó thành công
-        uses: actions/upload-artifact@v3
-        with:
-          name: workflow-success
-          path: ./dummy_success_file  # Đường dẫn tới file đã tạo
+        run: python -m src run
 
       - name: Delete workflow runs
         uses: Mattraks/delete-workflow-runs@v2
@@ -77,4 +55,4 @@ jobs:
           token: ${{ github.token }}
           repository: ${{ github.repository }}
           retain_days: 0
-          keep_minimum_runs: 5  # Giữ lại ít nhất 5 lần chạy trước
+          keep_minimum_runs: 5  # Giữ lại ít nhất 5 bản chạy trước
