@@ -11,10 +11,8 @@ jobs:
       checks: read
       contents: read
       issues: read
-      pulls: read
       repository-projects: read
       statuses: read
-      workflows: read
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
