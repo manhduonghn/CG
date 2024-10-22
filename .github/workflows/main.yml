@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@main
         with:
           fetch-depth: 0
 
@@ -38,7 +38,7 @@ jobs:
       # Chỉ sử dụng cache nếu workflow trước đó thành công
       - name: Cache Data
         id: cache-cloudflare-data
-        uses: actions/cache@v3
+        uses: actions/cache@main
         if: env.STATUS == 'success'  # Sử dụng cache nếu workflow trước đó thành công
         with:
           path: cloudflare_cache.json
