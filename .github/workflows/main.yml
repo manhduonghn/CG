@@ -1,18 +1,14 @@
 name: Add Rules to Cloudflare Gateway
 on:
   push:
+  schedule:
+    - cron: "0 * * * *"
   workflow_dispatch:
 
 jobs:
   run:
     name: Cloudflare Gateway
-    permissions:
-      actions: read
-      checks: read
-      contents: read
-      issues: read
-      repository-projects: read
-      statuses: read
+    permissions: write-all
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -26,37 +22,33 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@main
         with:
           fetch-depth: 0
+          
+      - name: Install Python
+        uses: actions/setup-python@main
+        with:
+          python-version: 3.11
 
-      - name: Install GitHub CLI
-        run: sudo apt-get install gh
-
-      - name: Verify GitHub CLI
-        run: gh --version
-
-      # Kiểm tra trạng thái workflow gần nhất
-      - name: Check previous workflow status
-        id: check-status
+      - name: Check Previous Run Status
+        id: check_run
         run: |
-          STATUS=$(gh run list --limit 1 --json conclusion -q '.[0].conclusion')
-          echo "Previous workflow status: $STATUS"
-          echo "STATUS=$STATUS" >> $GITHUB_ENV  # Lưu trạng thái vào Environment Files
-          echo "Current STATUS: ${STATUS}"  # In trạng thái để kiểm tra
+          previous_run=$(gh run list --limit 1 --json conclusion --jq '.[0].conclusion')
+          echo "Previous run conclusion: $previous_run"
+          echo "run_status=$previous_run" >> $GITHUB_ENV
 
-      # Chỉ sử dụng cache nếu workflow trước đó thành công
       - name: Cache Data
         id: cache-cloudflare-data
-        uses: actions/cache@v3
-        if: env.STATUS == 'success'  # Sử dụng cache nếu workflow trước đó thành công
+        uses: actions/cache@main
         with:
           path: cloudflare_cache.json
-          key: ${{ runner.os }}-cloudflare-data
+          key: ${{ runner.os }}-cloudflare-data-${{ github.run_id }}
           restore-keys: |
-            ${{ runner.os }}-cloudflare-data
+            ${{ runner.os }}-cloudflare-data-
+        if: env.run_status == 'success'  # Chỉ sử dụng cache nếu lần chạy trước thành công
 
-      - name: Cloudflare Gateway Zero Trust
+      - name: Cloudflare Gateway Zero Trust 
         run: python -m src run
 
       - name: Delete workflow runs
@@ -65,4 +57,4 @@ jobs:
           token: ${{ github.token }}
           repository: ${{ github.repository }}
           retain_days: 0
-          keep_minimum_runs: 5  # Giữ lại ít nhất 5 bản chạy trước
+          keep_minimum_runs: 1
