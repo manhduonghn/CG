@@ -31,12 +31,13 @@ jobs:
         with:
           python-version: 3.11
 
-      - name: Check Previous Run Status
+      - name: Check Previous Workflow Run Status
         id: check_run
         run: |
-          previous_run=$(gh run list --limit 1 --json conclusion --jq '.[0].conclusion')
-          echo "Previous run conclusion: $previous_run"
-          echo "run_status=$previous_run" >> $GITHUB_ENV
+          previous_run_status=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/actions/runs?per_page=1 | jq -r '.workflow_runs[0].conclusion')
+          echo "Previous run status: $previous_run_status"
+          echo "run_status=$previous_run_status" >> $GITHUB_ENV
 
       - name: Cache Data
         id: cache-cloudflare-data
@@ -46,7 +47,7 @@ jobs:
           key: ${{ runner.os }}-cloudflare-data-${{ github.run_id }}
           restore-keys: |
             ${{ runner.os }}-cloudflare-data-
-        if: env.run_status == 'success'  # Chỉ sử dụng cache nếu lần chạy trước thành công
+        if: env.run_status == 'success'  # Sử dụng cache nếu lần chạy trước thành công
 
       - name: Cloudflare Gateway Zero Trust 
         run: python -m src run
