@@ -5,6 +5,13 @@ import http.client
 from src import ids_pattern, CACHE_FILE
 from src.cloudflare import get_lists, get_rules, get_list_items
 
+headers = {
+    "Authorization": f"Bearer {GITHUB_TOKEN}",
+    "Accept": "application/vnd.github.v3+json"
+}
+
+GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
+GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
 
 def load_cache():
     try:
@@ -30,10 +37,8 @@ def load_cache():
 
 
 def save_cache(cache):
-    print("Saving cache...")
     with open(CACHE_FILE, 'w') as file:
         json.dump(cache, file)
-    print("Cache saved.")
 
 
 def get_current_lists(cache, list_name):
@@ -80,16 +85,8 @@ def extract_list_ids(rule):
 
 
 def delete_cache():
-    GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
-    GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY') 
-    
     BASE_URL = f"api.github.com"
     CACHE_URL = f"/repos/{GITHUB_REPOSITORY}/actions/caches"
-    headers = {
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "Python http.client"
-    }
 
     print(f"Deleting cache from repository: {GITHUB_REPOSITORY}")
     
@@ -112,31 +109,17 @@ def delete_cache():
 
 
 def get_latest_workflow_status():
-    GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
-    GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
-    
     BASE_URL = "api.github.com"
-    WORKFLOW_RUNS_URL = f"/repos/{GITHUB_REPOSITORY}/actions/runs?per_page=5"  # Fetch more runs to ensure we get a completed one
-    
-    headers = {
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "Python http.client"
-    }
-
-    print(f"Fetching latest workflow run status from {WORKFLOW_RUNS_URL}")
+    WORKFLOW_RUNS_URL = f"/repos/{GITHUB_REPOSITORY}/actions/runs?per_page=1"
     
     conn = http.client.HTTPSConnection(BASE_URL)
     conn.request("GET", WORKFLOW_RUNS_URL, headers=headers)
     response = conn.getresponse()
-    print(f"HTTP Status: {response.status}")
     
     if response.status != 200:
-        print(f"Failed to fetch workflow runs. Status: {response.status}")
         return None
     
     data = response.read()
-    print(f"Response data: {data}")
     
     runs = json.loads(data).get('workflow_runs', [])
     
@@ -145,10 +128,8 @@ def get_latest_workflow_status():
     
     if completed_runs:
         latest_run = completed_runs[0]
-        print(f"Latest completed run conclusion: {latest_run['conclusion']}")
         return latest_run['conclusion']  # 'success', 'failure', etc.
     
-    print("No completed workflow run found")
     return None
 
 
