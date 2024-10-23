@@ -2,11 +2,9 @@ import os
 import re
 import json
 import http.client
-from src import ids_pattern
+from src import ids_pattern, CACHE_FILE
 from src.cloudflare import get_lists, get_rules, get_list_items
 
-
-CACHE_FILE = "cloudflare_cache.json"
 
 def load_cache():
     if os.path.exists(CACHE_FILE):
