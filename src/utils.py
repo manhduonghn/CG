@@ -121,3 +121,6 @@ def get_latest_workflow_status():
         return latest_run['conclusion']  # 'success', 'failure', etc.
     
     return None  # No workflow run found
+
+def is_running_in_github_actions():
+    return os.getenv('GITHUB_ACTIONS') == 'true'
