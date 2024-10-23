@@ -8,7 +8,7 @@ from src.cloudflare import get_lists, get_rules, get_list_items
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
 GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY') 
     
-BASE_URL = f"api.github.com"
+BASE_URL = f"https://api.github.com"
 
 headers = {
     "Authorization": f"Bearer {GITHUB_TOKEN}",
