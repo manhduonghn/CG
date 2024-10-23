@@ -5,9 +5,18 @@ import http.client
 from src import ids_pattern, CACHE_FILE
 from src.cloudflare import get_lists, get_rules, get_list_items
 
+_cache_deleted = False
 
 def load_cache():
-    if os.path.exists(CACHE_FILE):
+    if is_running_in_github_actions():
+        workflow_status = get_latest_workflow_status()
+        if workflow_status == 'success':
+            if os.path.exists(CACHE_FILE):
+                with open(CACHE_FILE, 'r') as file:
+                    return json.load(file)
+        else:
+            delete_cache()
+    elif os.path.exists(CACHE_FILE):
         with open(CACHE_FILE, 'r') as file:
             return json.load(file)
     return {"lists": [], "rules": [], "mapping": {}}
@@ -54,6 +63,10 @@ def extract_list_ids(rule):
     return set(ids_pattern.findall(rule['traffic']))
 
 def delete_cache():
+    global _cache_deleted
+    if _cache_deleted:
+        return
+
     GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
     GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY') 
     
@@ -78,5 +91,35 @@ def delete_cache():
         conn.request("DELETE", delete_url, headers=headers)
         delete_response = conn.getresponse()
         delete_response.read()
+
+    _cache_deleted = True  # Đánh dấu cache đã bị xóa
                 
     conn.close()
+
+def get_latest_workflow_status():
+    GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
+    GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
+    
+    BASE_URL = "api.github.com"
+    WORKFLOW_RUNS_URL = f"/repos/{GITHUB_REPOSITORY}/actions/runs?per_page=1"
+    
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "Python http.client"
+    }
+
+    conn = http.client.HTTPSConnection(BASE_URL)
+    conn.request("GET", WORKFLOW_RUNS_URL, headers=headers)
+    response = conn.getresponse()
+    data = response.read()
+    runs = json.loads(data).get('workflow_runs', [])
+    
+    if runs:
+        latest_run = runs[0]
+        return latest_run['conclusion']  # 'success', 'failure', etc.
+    
+    return None  # No workflow run found
+
+def is_running_in_github_actions():
+    return os.getenv('GITHUB_ACTIONS') == 'true'
