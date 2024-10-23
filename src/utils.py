@@ -7,33 +7,21 @@ from src.cloudflare import get_lists, get_rules, get_list_items
 
 
 def load_cache():
-    try:
-        if is_running_in_github_actions():
-            workflow_status = get_latest_workflow_status()
-            print(f"Workflow status: {workflow_status}")
-            if workflow_status == 'success':
-                if os.path.exists(CACHE_FILE):
-                    print(f"Loading cache from {CACHE_FILE}")
-                    with open(CACHE_FILE, 'r') as file:
-                        return json.load(file)
-                else:
-                    print(f"Cache file {CACHE_FILE} does not exist")
-            else:
-                delete_cache()
-        elif os.path.exists(CACHE_FILE):
-            with open(CACHE_FILE, 'r') as file:
-                return json.load(file)
-    except json.JSONDecodeError:
-        print("Cache file is corrupted.")
-        return {"lists": [], "rules": [], "mapping": {}}
-    return {"lists": [], "rules": [], "mapping": {}}
-
-
+    if is_running_in_github_actions():
+        workflow_status = get_latest_workflow_status()
+        if workflow_status == 'success':
+            if os.path.exists(CACHE_FILE):
+                with open(CACHE_FILE, 'r') as file:
+                    return json.load(file)
+        else:
+            delete_cache()
+    elif os.path.exists(CACHE_FILE):
+        with open(CACHE_FILE, 'r') as file:
+            return json.load(file)
+    
 def save_cache(cache):
-    print("Saving cache...")
     with open(CACHE_FILE, 'w') as file:
         json.dump(cache, file)
-    print("Cache saved.")
 
 
 def get_current_lists(cache, list_name):
@@ -91,8 +79,6 @@ def delete_cache():
         "User-Agent": "Python http.client"
     }
 
-    print(f"Deleting cache from repository: {GITHUB_REPOSITORY}")
-    
     conn = http.client.HTTPSConnection(BASE_URL)
 
     conn.request("GET", CACHE_URL, headers=headers)
@@ -106,8 +92,7 @@ def delete_cache():
         conn.request("DELETE", delete_url, headers=headers)
         delete_response = conn.getresponse()
         delete_response.read()
-        print(f"Deleted cache ID: {cache_id}")
-                
+
     conn.close()
 
 
@@ -124,19 +109,14 @@ def get_latest_workflow_status():
         "User-Agent": "Python http.client"
     }
 
-    print(f"Fetching latest workflow run status from {WORKFLOW_RUNS_URL}")
-    
     conn = http.client.HTTPSConnection(BASE_URL)
     conn.request("GET", WORKFLOW_RUNS_URL, headers=headers)
     response = conn.getresponse()
-    print(f"HTTP Status: {response.status}")
     
     if response.status != 200:
-        print(f"Failed to fetch workflow runs. Status: {response.status}")
         return None
-    
+        
     data = response.read()
-    print(f"Response data: {data}")
     
     runs = json.loads(data).get('workflow_runs', [])
     
@@ -145,14 +125,11 @@ def get_latest_workflow_status():
     
     if completed_runs:
         latest_run = completed_runs[0]
-        print(f"Latest completed run conclusion: {latest_run['conclusion']}")
         return latest_run['conclusion']  # 'success', 'failure', etc.
     
-    print("No completed workflow run found")
     return None
 
 
 def is_running_in_github_actions():
     github_actions = os.getenv('GITHUB_ACTIONS')
-    print(f"Is running in GitHub Actions: {github_actions}")
     return github_actions == 'true'
