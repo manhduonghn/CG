@@ -9,8 +9,8 @@ jobs:
   run:
     name: Cloudflare Gateway
     permissions: 
-      actions: write  # Cấp quyền truy cập vào các workflow run
-      contents: write 
+      actions: write
+      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -59,7 +59,7 @@ jobs:
           key: ${{ runner.os }}-cloudflare-data-${{ github.run_id }}
           restore-keys: |
             ${{ runner.os }}-cloudflare-data-
-        if: steps.check_run.outputs.run_status == 'success'  # Chỉ sử dụng cache nếu lần chạy trước thành công
+        if: steps.check_run.outputs.run_status == 'success'
 
       - name: Cloudflare Gateway Zero Trust 
         run: python -m src run
