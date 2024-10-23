@@ -5,13 +5,13 @@ import http.client
 from src import ids_pattern, CACHE_FILE
 from src.cloudflare import get_lists, get_rules, get_list_items
 
+GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
+GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
+
 headers = {
     "Authorization": f"Bearer {GITHUB_TOKEN}",
     "Accept": "application/vnd.github.v3+json"
 }
-
-GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
-GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
 
 def load_cache():
     try:
