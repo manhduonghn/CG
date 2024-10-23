@@ -29,13 +29,13 @@ jobs:
           python-version: 3.11
         
       - name: Cache Data
-        id: cache-cloudflare-data
+        id: cache-cloudflare
         uses: actions/cache@main
         with:
-          path: cloudflare_data.json
-          key: ${{ runner.os }}-cloudflare-data-${{ github.run_id }}
+          path: cloudflare_cache.json
+          key: ${{ runner.os }}-cloudflare-cache-${{ github.run_id }}
           restore-keys: |
-            ${{ runner.os }}-cloudflare-data-
+            ${{ runner.os }}-cloudflare-cache-
       
       - name: Cloudflare Gateway Zero Trust 
         run: python -m src run
