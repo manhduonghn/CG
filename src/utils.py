@@ -5,33 +5,21 @@ import http.client
 from src import ids_pattern, CACHE_FILE
 from src.cloudflare import get_lists, get_rules, get_list_items
 
-GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
-GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
-
-headers = {
-    "Authorization": f"Bearer {GITHUB_TOKEN}",
-    "Accept": "application/vnd.github.v3+json"
-}
 
 def load_cache():
     try:
         if is_running_in_github_actions():
             workflow_status = get_latest_workflow_status()
-            print(f"Workflow status: {workflow_status}")
             if workflow_status == 'success':
                 if os.path.exists(CACHE_FILE):
-                    print(f"Loading cache from {CACHE_FILE}")
                     with open(CACHE_FILE, 'r') as file:
                         return json.load(file)
-                else:
-                    print(f"Cache file {CACHE_FILE} does not exist")
             else:
                 delete_cache()
         elif os.path.exists(CACHE_FILE):
             with open(CACHE_FILE, 'r') as file:
                 return json.load(file)
     except json.JSONDecodeError:
-        print("Cache file is corrupted.")
         return {"lists": [], "rules": [], "mapping": {}}
     return {"lists": [], "rules": [], "mapping": {}}
 
@@ -85,11 +73,17 @@ def extract_list_ids(rule):
 
 
 def delete_cache():
+    GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
+    GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY') 
+    
     BASE_URL = f"api.github.com"
     CACHE_URL = f"/repos/{GITHUB_REPOSITORY}/actions/caches"
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "Python http.client"
+    }
 
-    print(f"Deleting cache from repository: {GITHUB_REPOSITORY}")
-    
     conn = http.client.HTTPSConnection(BASE_URL)
 
     conn.request("GET", CACHE_URL, headers=headers)
@@ -103,15 +97,23 @@ def delete_cache():
         conn.request("DELETE", delete_url, headers=headers)
         delete_response = conn.getresponse()
         delete_response.read()
-        print(f"Deleted cache ID: {cache_id}")
-                
+        
     conn.close()
 
 
 def get_latest_workflow_status():
-    BASE_URL = "api.github.com"
-    WORKFLOW_RUNS_URL = f"/repos/{GITHUB_REPOSITORY}/actions/runs?per_page=1"
+    GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
+    GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
     
+    BASE_URL = "api.github.com"
+    WORKFLOW_RUNS_URL = f"/repos/{GITHUB_REPOSITORY}/actions/runs?per_page=5"  # Fetch more runs to ensure we get a completed one
+    
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "Python http.client"
+    }
+
     conn = http.client.HTTPSConnection(BASE_URL)
     conn.request("GET", WORKFLOW_RUNS_URL, headers=headers)
     response = conn.getresponse()
@@ -135,5 +137,4 @@ def get_latest_workflow_status():
 
 def is_running_in_github_actions():
     github_actions = os.getenv('GITHUB_ACTIONS')
-    print(f"Is running in GitHub Actions: {github_actions}")
     return github_actions == 'true'
