@@ -8,7 +8,9 @@ on:
 jobs:
   run:
     name: Cloudflare Gateway
-    permissions: write-all
+    permissions: 
+      actions: write  # Cấp quyền truy cập vào các workflow run
+      contents: write 
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -22,12 +24,12 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@main
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       - name: Install Python
-        uses: actions/setup-python@main
+        uses: actions/setup-python@v4
         with:
           python-version: 3.11
 
@@ -36,11 +38,11 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const runs = await github.actions.listWorkflowRuns({
+            const runs = await github.rest.actions.listWorkflowRunsForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              workflow_id: context.workflow,
-              per_page: 5
+              per_page: 5,
+              status: 'completed'
             });
             const previousRun = runs.data.workflow_runs.find(run => run.id !== context.runId);
             if (previousRun && previousRun.conclusion === "success") {
@@ -51,7 +53,7 @@ jobs:
 
       - name: Cache Data
         id: cache-cloudflare-data
-        uses: actions/cache@main
+        uses: actions/cache@v3
         with:
           path: cloudflare_cache.json
           key: ${{ runner.os }}-cloudflare-data-${{ github.run_id }}
