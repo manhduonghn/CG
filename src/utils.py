@@ -116,7 +116,7 @@ def get_latest_workflow_status():
     GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
     
     BASE_URL = "api.github.com"
-    WORKFLOW_RUNS_URL = f"/repos/{GITHUB_REPOSITORY}/actions/runs?per_page=1"
+    WORKFLOW_RUNS_URL = f"/repos/{GITHUB_REPOSITORY}/actions/runs?per_page=5"  # Fetch more runs to ensure we get a completed one
     
     headers = {
         "Authorization": f"Bearer {GITHUB_TOKEN}",
@@ -140,13 +140,16 @@ def get_latest_workflow_status():
     
     runs = json.loads(data).get('workflow_runs', [])
     
-    if runs:
-        latest_run = runs[0]
-        print(f"Latest run conclusion: {latest_run['conclusion']}")
+    # Filter only completed workflows
+    completed_runs = [run for run in runs if run['status'] == 'completed']
+    
+    if completed_runs:
+        latest_run = completed_runs[0]
+        print(f"Latest completed run conclusion: {latest_run['conclusion']}")
         return latest_run['conclusion']  # 'success', 'failure', etc.
     
-    print("No workflow run found")
-    return None  # No workflow run found
+    print("No completed workflow run found")
+    return None
 
 
 def is_running_in_github_actions():
