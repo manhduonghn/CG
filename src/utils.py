@@ -5,11 +5,13 @@ import http.client
 from src import ids_pattern, CACHE_FILE
 from src.cloudflare import get_lists, get_rules, get_list_items
 
-
-def load_cache():
+def load_cache(workflow_status=None):
     try:
         if is_running_in_github_actions():
-            workflow_status = get_latest_workflow_status()
+            if workflow_status is None:
+                # If the status isn't passed, fetch it
+                workflow_status = get_latest_workflow_status()
+            
             if workflow_status == 'success':
                 if os.path.exists(CACHE_FILE):
                     with open(CACHE_FILE, 'r') as file:
@@ -23,11 +25,9 @@ def load_cache():
         return {"lists": [], "rules": [], "mapping": {}}
     return {"lists": [], "rules": [], "mapping": {}}
 
-
 def save_cache(cache):
     with open(CACHE_FILE, 'w') as file:
         json.dump(cache, file)
-
 
 def get_current_lists(cache, list_name):
     if cache["lists"]:
@@ -37,7 +37,6 @@ def get_current_lists(cache, list_name):
     save_cache(cache)
     return current_lists
 
-
 def get_current_rules(cache, rule_name):
     if cache["rules"]:
         return cache["rules"]
@@ -45,7 +44,6 @@ def get_current_rules(cache, rule_name):
     cache["rules"] = current_rules
     save_cache(cache)
     return current_rules
-
 
 def get_list_items_cached(cache, list_id):
     if list_id in cache["mapping"]:
@@ -55,26 +53,22 @@ def get_list_items_cached(cache, list_id):
     save_cache(cache)
     return items
 
-
 def split_domain_list(domains, chunk_size):
     for i in range(0, len(domains), chunk_size):
         yield domains[i:i + chunk_size]
 
-
 def safe_sort_key(list_item):
     match = re.search(r'\d+', list_item["name"])
     return int(match.group()) if match else float('inf')
-
 
 def extract_list_ids(rule):
     if not rule or not rule.get('traffic'):
         return set()
     return set(ids_pattern.findall(rule['traffic']))
 
-
 def delete_cache():
     GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
-    GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY') 
+    GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
     
     BASE_URL = f"api.github.com"
     CACHE_URL = f"/repos/{GITHUB_REPOSITORY}/actions/caches"
@@ -85,7 +79,6 @@ def delete_cache():
     }
 
     conn = http.client.HTTPSConnection(BASE_URL)
-
     conn.request("GET", CACHE_URL, headers=headers)
     response = conn.getresponse()
     data = response.read()
@@ -100,13 +93,12 @@ def delete_cache():
         
     conn.close()
 
-
 def get_latest_workflow_status():
     GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
     GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
     
     BASE_URL = "api.github.com"
-    WORKFLOW_RUNS_URL = f"/repos/{GITHUB_REPOSITORY}/actions/runs?per_page=5"  # Fetch more runs to ensure we get a completed one
+    WORKFLOW_RUNS_URL = f"/repos/{GITHUB_REPOSITORY}/actions/runs?per_page=5"
     
     headers = {
         "Authorization": f"Bearer {GITHUB_TOKEN}",
@@ -122,18 +114,16 @@ def get_latest_workflow_status():
         return None
     
     data = response.read()
-    
     runs = json.loads(data).get('workflow_runs', [])
-    
-    # Filter only completed workflows
+    conn.close()
+
     completed_runs = [run for run in runs if run['status'] == 'completed']
     
     if completed_runs:
         latest_run = completed_runs[0]
-        return latest_run['conclusion']  # 'success', 'failure', etc.
+        return latest_run['conclusion']
     
     return None
-
 
 def is_running_in_github_actions():
     github_actions = os.getenv('GITHUB_ACTIONS')
