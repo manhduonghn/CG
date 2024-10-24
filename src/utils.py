@@ -7,6 +7,7 @@ from src.cloudflare import get_lists, get_rules, get_list_items
 
 class GithubAPI:
     BASE_URL = "api.github.com"
+    GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
     HEADERS = {
         "Authorization": f"Bearer {os.getenv('GITHUB_TOKEN')}",
         "Accept": "application/vnd.github.v3+json",
@@ -101,17 +102,14 @@ def extract_list_ids(rule):
 
 
 def delete_completed_workflows(completed_run_ids):
-    GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
-
     if completed_run_ids:
         for run_id in completed_run_ids:
-            delete_url = f"/repos/{GITHUB_REPOSITORY}/actions/runs/{run_id}"
+            delete_url = f"/repos/{GithubAPI.GITHUB_REPOSITORY}/actions/runs/{run_id}"
             GithubAPI.delete(delete_url)
 
 
 def get_latest_workflow_status():
-    GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
-    WORKFLOW_RUNS_URL = f"/repos/{GITHUB_REPOSITORY}/actions/runs?per_page=5"
+    WORKFLOW_RUNS_URL = f"/repos/{GithubAPI.GITHUB_REPOSITORY}/actions/runs?per_page=5"
 
     runs_data = GithubAPI.get(WORKFLOW_RUNS_URL).get('workflow_runs', [])
     completed_runs = [run for run in runs_data if run['status'] == 'completed']
@@ -129,8 +127,7 @@ def is_running_in_github_actions():
 
 
 def delete_cache(completed_run_ids=None):
-    GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
-    CACHE_URL = f"/repos/{GITHUB_REPOSITORY}/actions/caches"
+    CACHE_URL = f"/repos/{GithubAPI.GITHUB_REPOSITORY}/actions/caches"
 
     caches = GithubAPI.get(CACHE_URL).get('actions_caches', [])
     for cache_id in [cache['id'] for cache in caches]:
