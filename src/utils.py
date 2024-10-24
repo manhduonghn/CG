@@ -5,7 +5,7 @@ import http.client
 from src import ids_pattern, CACHE_FILE
 from src.cloudflare import get_lists, get_rules, get_list_items
 
-def load_cache(workflow_status=None):
+
 def load_cache(workflow_status=None):
     try:
         if is_running_in_github_actions():
