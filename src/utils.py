@@ -11,13 +11,13 @@ def load_cache():
             # Kiểm tra trạng thái workflow gần nhất và lấy danh sách các workflow run hoàn thành
             workflow_status, completed_run_ids = get_latest_workflow_status()
             
-            if workflow_status == 'success':  # Nếu thành công, sử dụng cache
+            if workflow_status == 'success':  # Nếu thành công, không xóa workflow run
                 if os.path.exists(CACHE_FILE):
                     with open(CACHE_FILE, 'r') as file:
                         return json.load(file)
             else:
-                # Nếu không thành công, xóa cache và các workflow run hoàn thành
-                delete_cache(completed_run_ids)
+                # Nếu không thành công, xóa các workflow run hoàn thành
+                delete_completed_workflows(completed_run_ids)
         elif os.path.exists(CACHE_FILE):  # Nếu không chạy trên GitHub Actions
             with open(CACHE_FILE, 'r') as file:
                 return json.load(file)
@@ -75,12 +75,11 @@ def extract_list_ids(rule):
     return set(ids_pattern.findall(rule['traffic']))
 
 
-def delete_cache(completed_run_ids=None):
+def delete_completed_workflows(completed_run_ids):
     GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
-    GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY') 
+    GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
     
-    BASE_URL = f"api.github.com"
-    CACHE_URL = f"/repos/{GITHUB_REPOSITORY}/actions/caches"
+    BASE_URL = "api.github.com"
     headers = {
         "Authorization": f"Bearer {GITHUB_TOKEN}",
         "Accept": "application/vnd.github.v3+json",
@@ -88,19 +87,6 @@ def delete_cache(completed_run_ids=None):
     }
 
     conn = http.client.HTTPSConnection(BASE_URL)
-
-    # Xóa cache
-    conn.request("GET", CACHE_URL, headers=headers)
-    response = conn.getresponse()
-    data = response.read()
-    caches = json.loads(data).get('actions_caches', [])
-    caches_to_delete = [cache['id'] for cache in caches]
-        
-    for cache_id in caches_to_delete:
-        delete_url = f"{CACHE_URL}/{cache_id}"
-        conn.request("DELETE", delete_url, headers=headers)
-        delete_response = conn.getresponse()
-        delete_response.read()
 
     # Xóa các workflow run hoàn thành nếu có
     if completed_run_ids:
@@ -141,7 +127,7 @@ def get_latest_workflow_status():
     
     runs = json.loads(data).get('workflow_runs', [])
     
-    # Filter only completed workflows
+    # Lọc các workflows hoàn thành
     completed_runs = [run for run in runs if run['status'] == 'completed']
     
     if completed_runs:
