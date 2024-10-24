@@ -5,6 +5,32 @@ from src import ids_pattern, CACHE_FILE
 from src.cloudflare import get_lists, get_rules, get_list_items
 
 
+class GithubAPI:
+    BASE_URL = "api.github.com"
+    HEADERS = {
+        "Authorization": f"Bearer {os.getenv('GITHUB_TOKEN')}",
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "Python http.client"
+    }
+
+    @staticmethod
+    def request(method, url, body=None):
+        conn = http.client.HTTPSConnection(GithubAPI.BASE_URL)
+        conn.request(method, url, body, headers=GithubAPI.HEADERS)
+        response = conn.getresponse()
+        data = response.read()
+        conn.close()
+        return json.loads(data) if data else {}
+
+    @staticmethod
+    def delete(url):
+        return GithubAPI.request("DELETE", url)
+
+    @staticmethod
+    def get(url):
+        return GithubAPI.request("GET", url)
+
+
 def load_cache():
     try:
         if is_running_in_github_actions():
@@ -75,99 +101,40 @@ def extract_list_ids(rule):
 
 
 def delete_completed_workflows(completed_run_ids):
-    GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
     GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
 
-    BASE_URL = "api.github.com"
-    headers = {
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "Python http.client"
-    }
-
-    conn = http.client.HTTPSConnection(BASE_URL)
     if completed_run_ids:
         for run_id in completed_run_ids:
             delete_url = f"/repos/{GITHUB_REPOSITORY}/actions/runs/{run_id}"
-            conn.request("DELETE", delete_url, headers=headers)
-            delete_response = conn.getresponse()
-            delete_response.read()
-
-    conn.close()
+            GithubAPI.delete(delete_url)
 
 
 def get_latest_workflow_status():
-    GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
     GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
+    WORKFLOW_RUNS_URL = f"/repos/{GITHUB_REPOSITORY}/actions/runs?per_page=5"
 
-    BASE_URL = "api.github.com"
-    WORKFLOW_RUNS_URL = f"/repos/{GITHUB_REPOSITORY}/actions/runs?per_page=5"  # Fetch more runs to ensure we get a completed one
-
-    headers = {
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "Python http.client"
-    }
-
-    conn = http.client.HTTPSConnection(BASE_URL)
-    conn.request("GET", WORKFLOW_RUNS_URL, headers=headers)
-    response = conn.getresponse()
-
-    if response.status != 200:
-        return None, None
-
-    data = response.read()
-
-    runs = json.loads(data).get('workflow_runs', [])
-
-    completed_runs = [run for run in runs if run['status'] == 'completed']
+    runs_data = GithubAPI.get(WORKFLOW_RUNS_URL).get('workflow_runs', [])
+    completed_runs = [run for run in runs_data if run['status'] == 'completed']
 
     if completed_runs:
         latest_run = completed_runs[0]
         completed_run_ids = [run['id'] for run in completed_runs]
-        return latest_run['conclusion'], completed_run_ids  # Trả về trạng thái và danh sách ID của các workflow đã hoàn thành
+        return latest_run['conclusion'], completed_run_ids
 
     return None, []
 
 
 def is_running_in_github_actions():
-    github_actions = os.getenv('GITHUB_ACTIONS')
-    return github_actions == 'true'
+    return os.getenv('GITHUB_ACTIONS') == 'true'
+
 
 def delete_cache(completed_run_ids=None):
-    GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
-    GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY') 
-    
-    BASE_URL = f"api.github.com"
+    GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
     CACHE_URL = f"/repos/{GITHUB_REPOSITORY}/actions/caches"
-    headers = {
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "Python http.client"
-    }
-    conn = http.client.HTTPSConnection(BASE_URL)
-    # Xóa cache
-    conn.request("GET", CACHE_URL, headers=headers)
-    response = conn.getresponse()
-    data = response.read()
-    caches = json.loads(data).get('actions_caches', [])
-    caches_to_delete = [cache['id'] for cache in caches]
-        
-    for cache_id in caches_to_delete:
-        delete_url = f"{CACHE_URL}/{cache_id}"
-        conn.request("DELETE", delete_url, headers=headers)
-        delete_response = conn.getresponse()
-        delete_response.read()
-    # Xóa các workflow run hoàn thành nếu có
+
+    caches = GithubAPI.get(CACHE_URL).get('actions_caches', [])
+    for cache_id in [cache['id'] for cache in caches]:
+        GithubAPI.delete(f"{CACHE_URL}/{cache_id}")
+
     if completed_run_ids:
-        for run_id in completed_run_ids:
-            delete_url = f"/repos/{GITHUB_REPOSITORY}/actions/runs/{run_id}"
-            conn.request("DELETE", delete_url, headers=headers)
-            delete_response = conn.getresponse()
-            if delete_response.status == 204:
-                print(f"Successfully deleted workflow run with ID {run_id}.")
-            else:
-                print(f"Failed to delete workflow run with ID {run_id}. Status: {delete_response.status}")
-            delete_response.read()
-        
-    conn.close()
+        delete_completed_workflows(completed_run_ids)
