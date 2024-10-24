@@ -123,25 +123,28 @@ def get_latest_workflow_status():
     # Filter only completed workflows
     completed_runs = [run for run in runs if run['status'] == 'completed']
     
+    # Process each completed run
     if completed_runs:
         for run in completed_runs:
             run_id = run['id']
             conclusion = run['conclusion']  # 'success', 'failure', etc.
             print(f"Workflow {run_id} has status {conclusion}.")
 
-            # Create a new connection for each delete request
-            conn = http.client.HTTPSConnection(BASE_URL)
-            delete_url = f"/repos/{GITHUB_REPOSITORY}/actions/runs/{run_id}"
-            conn.request("DELETE", delete_url, headers=headers)
-            delete_response = conn.getresponse()
-            
-            # Check if deletion was successful
-            if delete_response.status == 204:
-                print(f"Deleted workflow run {run_id} successfully.")
-            else:
-                print(f"Failed to delete workflow run {run_id}. Status: {delete_response.status}")
+            # If the conclusion is 'success', proceed with deletion
+            if conclusion == 'success':
+                # Create a new connection for each delete request
+                conn = http.client.HTTPSConnection(BASE_URL)
+                delete_url = f"/repos/{GITHUB_REPOSITORY}/actions/runs/{run_id}"
+                conn.request("DELETE", delete_url, headers=headers)
+                delete_response = conn.getresponse()
                 
-            conn.close()  # Close the connection after the DELETE request
+                # Check if deletion was successful
+                if delete_response.status == 204:
+                    print(f"Deleted workflow run {run_id} successfully.")
+                else:
+                    print(f"Failed to delete workflow run {run_id}. Status: {delete_response.status}")
+                    
+                conn.close()  # Close the connection after the DELETE request
 
     return None
 
