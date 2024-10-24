@@ -16,14 +16,13 @@ def load_cache():
                     with open(CACHE_FILE, 'r') as file:
                         return json.load(file)
 
-            # Xóa các workflow run đã hoàn thành
-            delete_completed_workflows(completed_run_ids)
-
         elif os.path.exists(CACHE_FILE):  # Nếu không chạy trên GitHub Actions
             with open(CACHE_FILE, 'r') as file:
                 return json.load(file)
     except json.JSONDecodeError:
         return {"lists": [], "rules": [], "mapping": {}}
+
+    delete_completed_workflows(completed_run_ids)
     
     return {"lists": [], "rules": [], "mapping": {}}
 
