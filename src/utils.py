@@ -10,7 +10,10 @@ def load_cache():
         if is_running_in_github_actions():
             # Kiểm tra trạng thái workflow gần nhất
             workflow_status, completed_run_ids = get_latest_workflow_status()
-            
+
+            # Xóa tất cả workflow run đã hoàn thành
+            delete_completed_workflows(completed_run_ids)
+
             if workflow_status == 'success':  # Nếu thành công, sử dụng cache
                 if os.path.exists(CACHE_FILE):
                     with open(CACHE_FILE, 'r') as file:
@@ -22,8 +25,6 @@ def load_cache():
     except json.JSONDecodeError:
         return {"lists": [], "rules": [], "mapping": {}}
 
-    delete_completed_workflows(completed_run_ids)
-    
     return {"lists": [], "rules": [], "mapping": {}}
 
 
@@ -78,7 +79,7 @@ def extract_list_ids(rule):
 def delete_completed_workflows(completed_run_ids):
     GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
     GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
-    
+
     BASE_URL = "api.github.com"
     headers = {
         "Authorization": f"Bearer {GITHUB_TOKEN}",
@@ -88,7 +89,7 @@ def delete_completed_workflows(completed_run_ids):
 
     conn = http.client.HTTPSConnection(BASE_URL)
 
-    # Xóa các workflow run hoàn thành nếu có
+    # Xóa tất cả workflow run hoàn thành
     if completed_run_ids:
         for run_id in completed_run_ids:
             delete_url = f"/repos/{GITHUB_REPOSITORY}/actions/runs/{run_id}"
@@ -99,9 +100,48 @@ def delete_completed_workflows(completed_run_ids):
             else:
                 print(f"Failed to delete workflow run with ID {run_id}. Status: {delete_response.status}")
             delete_response.read()
-        
+
     conn.close()
 
+
+def get_latest_workflow_status():
+    GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
+    GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
+
+    BASE_URL = "api.github.com"
+    WORKFLOW_RUNS_URL = f"/repos/{GITHUB_REPOSITORY}/actions/runs?per_page=5"  # Fetch more runs to ensure we get a completed one
+
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "Python http.client"
+    }
+
+    conn = http.client.HTTPSConnection(BASE_URL)
+    conn.request("GET", WORKFLOW_RUNS_URL, headers=headers)
+    response = conn.getresponse()
+
+    if response.status != 200:
+        return None, None
+
+    data = response.read()
+
+    runs = json.loads(data).get('workflow_runs', [])
+
+    # Lọc các workflows hoàn thành
+    completed_runs = [run for run in runs if run['status'] == 'completed']
+
+    if completed_runs:
+        latest_run = completed_runs[0]
+        completed_run_ids = [run['id'] for run in completed_runs]
+        return latest_run['conclusion'], completed_run_ids  # Trả về trạng thái và danh sách ID của các workflow đã hoàn thành
+
+    return None, []
+
+
+def is_running_in_github_actions():
+    github_actions = os.getenv('GITHUB_ACTIONS')
+    return github_actions == 'true'
 
 def delete_cache(completed_run_ids=None):
     GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
@@ -140,43 +180,3 @@ def delete_cache(completed_run_ids=None):
             delete_response.read()
         
     conn.close()
-
-
-def get_latest_workflow_status():
-    GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
-    GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
-    
-    BASE_URL = "api.github.com"
-    WORKFLOW_RUNS_URL = f"/repos/{GITHUB_REPOSITORY}/actions/runs?per_page=5"  # Fetch more runs to ensure we get a completed one
-    
-    headers = {
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "Python http.client"
-    }
-
-    conn = http.client.HTTPSConnection(BASE_URL)
-    conn.request("GET", WORKFLOW_RUNS_URL, headers=headers)
-    response = conn.getresponse()
-    
-    if response.status != 200:
-        return None, None
-    
-    data = response.read()
-    
-    runs = json.loads(data).get('workflow_runs', [])
-    
-    # Lọc các workflows hoàn thành
-    completed_runs = [run for run in runs if run['status'] == 'completed']
-    
-    if completed_runs:
-        latest_run = completed_runs[0]
-        completed_run_ids = [run['id'] for run in completed_runs]
-        return latest_run['conclusion'], completed_run_ids  # Trả về trạng thái và danh sách ID của các workflow đã hoàn thành
-    
-    return None, []
-
-
-def is_running_in_github_actions():
-    github_actions = os.getenv('GITHUB_ACTIONS')
-    return github_actions == 'true'
