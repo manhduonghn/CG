@@ -6,24 +6,37 @@ from src import ids_pattern, CACHE_FILE
 from src.cloudflare import get_lists, get_rules, get_list_items
 
 def load_cache(workflow_status=None):
+def load_cache(workflow_status=None):
     try:
         if is_running_in_github_actions():
             if workflow_status is None:
-                # If the status isn't passed, fetch it
                 workflow_status = get_latest_workflow_status()
+
+            print(f"Workflow status: {workflow_status}")
             
             if workflow_status == 'success':
                 if os.path.exists(CACHE_FILE):
+                    print(f"Cache file {CACHE_FILE} exists, loading...")
                     with open(CACHE_FILE, 'r') as file:
                         return json.load(file)
+                else:
+                    print(f"Cache file {CACHE_FILE} does not exist.")
             else:
+                print(f"Workflow status is not 'success', deleting cache.")
                 delete_cache()
         elif os.path.exists(CACHE_FILE):
+            print(f"Running outside of GitHub Actions, cache file {CACHE_FILE} exists, loading...")
             with open(CACHE_FILE, 'r') as file:
                 return json.load(file)
+        else:
+            print(f"Cache file {CACHE_FILE} does not exist.")
     except json.JSONDecodeError:
+        print(f"Error decoding cache file {CACHE_FILE}. Returning empty cache.")
         return {"lists": [], "rules": [], "mapping": {}}
+    
+    print("Returning empty cache.")
     return {"lists": [], "rules": [], "mapping": {}}
+    
 
 def save_cache(cache):
     with open(CACHE_FILE, 'w') as file:
