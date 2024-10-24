@@ -8,10 +8,10 @@ from src.cloudflare import (
 from src import utils, info, error, silent_error, PREFIX
 
 class CloudflareManager:
-    def __init__(self, prefix, workflow_status=None):
+    def __init__(self, prefix):
         self.list_name = f"[{prefix}]"
         self.rule_name = f"[{prefix}] Block Ads"
-        self.cache = utils.load_cache(workflow_status)
+        self.cache = utils.load_cache()
 
     def update_resources(self):
         domains_to_block = DomainConverter().process_urls()
@@ -52,6 +52,7 @@ class CloudflareManager:
 
         utils.save_cache(self.cache)
 
+        # Extract existing list IDs from current_rules for comparison
         cgp_rule = next((rule for rule in current_rules if rule["name"] == self.rule_name), None)
         cgp_list_ids = utils.extract_list_ids(cgp_rule)
 
@@ -67,6 +68,7 @@ class CloudflareManager:
             info(f"Created rule {rule['name']}")
             self.cache["rules"].append(rule)
 
+        # Delete excess lists
         excess_lists = [lst for lst in current_lists if lst["id"] not in list_ids]
         for lst in excess_lists:
             delete_list(lst["id"])
@@ -82,10 +84,12 @@ class CloudflareManager:
         current_rules = utils.get_current_rules(self.cache, self.rule_name)
         current_lists.sort(key=utils.safe_sort_key)
 
+        # Delete rules with the name rule_name
         for rule in current_rules:
             delete_rule(rule["id"])
             info(f"Deleted rule: {rule['name']}")
 
+        # Delete lists with names that include prefix
         for lst in current_lists:
             delete_list(lst["id"])
             info(f"Deleted list: {lst['name']}")
@@ -99,9 +103,7 @@ def main():
     parser = argparse.ArgumentParser(description="Cloudflare Manager Script")
     parser.add_argument("action", choices=["run", "leave"], help="Choose action: run or leave")
     args = parser.parse_args()    
-
-    workflow_status = utils.get_latest_workflow_status()  # Fetch workflow status
-    cloudflare_manager = CloudflareManager(PREFIX, workflow_status=workflow_status)
+    cloudflare_manager = CloudflareManager(PREFIX)
     
     if args.action == "run":
         cloudflare_manager.update_resources()
