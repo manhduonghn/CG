@@ -1,5 +1,4 @@
 import os
-import re
 import json
 import http.client
 from src import ids_pattern, CACHE_FILE
@@ -9,13 +8,13 @@ from src.cloudflare import get_lists, get_rules, get_list_items
 def load_cache():
     try:
         if is_running_in_github_actions():
-            workflow_status = get_latest_workflow_status()
+            workflow_status, completed_run_ids = get_latest_workflow_status()
             if workflow_status == 'success':
                 if os.path.exists(CACHE_FILE):
                     with open(CACHE_FILE, 'r') as file:
                         return json.load(file)
             else:
-                delete_cache()
+                delete_cache(completed_run_ids)  # Thêm completed_run_ids để xóa các workflow run hoàn thành
         elif os.path.exists(CACHE_FILE):
             with open(CACHE_FILE, 'r') as file:
                 return json.load(file)
@@ -72,7 +71,7 @@ def extract_list_ids(rule):
     return set(ids_pattern.findall(rule['traffic']))
 
 
-def delete_cache():
+def delete_cache(completed_run_ids=None):
     GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
     GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY') 
     
@@ -86,6 +85,7 @@ def delete_cache():
 
     conn = http.client.HTTPSConnection(BASE_URL)
 
+    # Xóa cache
     conn.request("GET", CACHE_URL, headers=headers)
     response = conn.getresponse()
     data = response.read()
@@ -97,6 +97,18 @@ def delete_cache():
         conn.request("DELETE", delete_url, headers=headers)
         delete_response = conn.getresponse()
         delete_response.read()
+
+    # Xóa các workflow run hoàn thành nếu có
+    if completed_run_ids:
+        for run_id in completed_run_ids:
+            delete_url = f"/repos/{GITHUB_REPOSITORY}/actions/runs/{run_id}"
+            conn.request("DELETE", delete_url, headers=headers)
+            delete_response = conn.getresponse()
+            if delete_response.status == 204:
+                print(f"Successfully deleted workflow run with ID {run_id}.")
+            else:
+                print(f"Failed to delete workflow run with ID {run_id}. Status: {delete_response.status}")
+            delete_response.read()
         
     conn.close()
 
@@ -119,7 +131,7 @@ def get_latest_workflow_status():
     response = conn.getresponse()
     
     if response.status != 200:
-        return None
+        return None, None
     
     data = response.read()
     
@@ -130,9 +142,10 @@ def get_latest_workflow_status():
     
     if completed_runs:
         latest_run = completed_runs[0]
-        return latest_run['conclusion']  # 'success', 'failure', etc.
+        completed_run_ids = [run['id'] for run in completed_runs]
+        return latest_run['conclusion'], completed_run_ids  # Trả về trạng thái và danh sách ID của các workflow đã hoàn thành
     
-    return None
+    return None, []
 
 
 def is_running_in_github_actions():
