@@ -8,18 +8,22 @@ from src.cloudflare import get_lists, get_rules, get_list_items
 def load_cache():
     try:
         if is_running_in_github_actions():
+            # Kiểm tra trạng thái workflow gần nhất và lấy danh sách các workflow run hoàn thành
             workflow_status, completed_run_ids = get_latest_workflow_status()
-            if workflow_status == 'success':
+            
+            if workflow_status == 'success':  # Nếu thành công, sử dụng cache
                 if os.path.exists(CACHE_FILE):
                     with open(CACHE_FILE, 'r') as file:
                         return json.load(file)
             else:
-                delete_cache(completed_run_ids)  # Thêm completed_run_ids để xóa các workflow run hoàn thành
-        elif os.path.exists(CACHE_FILE):
+                # Nếu không thành công, xóa cache và các workflow run hoàn thành
+                delete_cache(completed_run_ids)
+        elif os.path.exists(CACHE_FILE):  # Nếu không chạy trên GitHub Actions
             with open(CACHE_FILE, 'r') as file:
                 return json.load(file)
     except json.JSONDecodeError:
         return {"lists": [], "rules": [], "mapping": {}}
+    
     return {"lists": [], "rules": [], "mapping": {}}
 
 
