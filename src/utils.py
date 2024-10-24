@@ -98,7 +98,7 @@ def get_latest_workflow_status():
     GITHUB_REPOSITORY = os.getenv('GITHUB_REPOSITORY')
     
     BASE_URL = "api.github.com"
-    WORKFLOW_RUNS_URL = f"/repos/{GITHUB_REPOSITORY}/actions/runs?per_page=5"
+    WORKFLOW_RUNS_URL = f"/repos/{GITHUB_REPOSITORY}/actions/runs?per_page=5"  # Fetch more runs to ensure we get a completed one
     
     headers = {
         "Authorization": f"Bearer {GITHUB_TOKEN}",
@@ -106,23 +106,43 @@ def get_latest_workflow_status():
         "User-Agent": "Python http.client"
     }
 
+    # Create a connection to fetch the workflow runs
     conn = http.client.HTTPSConnection(BASE_URL)
     conn.request("GET", WORKFLOW_RUNS_URL, headers=headers)
     response = conn.getresponse()
     
     if response.status != 200:
+        print("Error fetching workflow runs.")
+        conn.close()
         return None
     
     data = response.read()
     runs = json.loads(data).get('workflow_runs', [])
-    conn.close()
+    conn.close()  # Close the connection after reading the response
 
+    # Filter only completed workflows
     completed_runs = [run for run in runs if run['status'] == 'completed']
     
     if completed_runs:
-        latest_run = completed_runs[0]
-        return latest_run['conclusion']
-    
+        for run in completed_runs:
+            run_id = run['id']
+            conclusion = run['conclusion']  # 'success', 'failure', etc.
+            print(f"Workflow {run_id} has status {conclusion}.")
+
+            # Create a new connection for each delete request
+            conn = http.client.HTTPSConnection(BASE_URL)
+            delete_url = f"/repos/{GITHUB_REPOSITORY}/actions/runs/{run_id}"
+            conn.request("DELETE", delete_url, headers=headers)
+            delete_response = conn.getresponse()
+            
+            # Check if deletion was successful
+            if delete_response.status == 204:
+                print(f"Deleted workflow run {run_id} successfully.")
+            else:
+                print(f"Failed to delete workflow run {run_id}. Status: {delete_response.status}")
+                
+            conn.close()  # Close the connection after the DELETE request
+
     return None
 
 def is_running_in_github_actions():
